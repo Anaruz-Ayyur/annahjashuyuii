@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>النهج الشيوعي</title>
+  <link rel="icon" href="images/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</head>
+<body>
+  <header id="masthead" class="masthead"></header>
+
+  <main>
+    <div class="about-sheet">
+      <p>منصة أنشأها رفيقكم لنشر الأفكار حول الإشتراكية والشيوعية ومعادات الإمبريالية والقضايا الثورية والتحررية لشعوب العالم من منظور ماركسي لينيني.</p>
+
+      <hr class="about-sheet__divider">
+
+      <div class="about-field">
+        <span class="about-field__label">الأرشيف على Internet Archive</span>
+        <span class="about-field__value" id="archive-link"></span>
+      </div>
+
+      <div class="about-field">
+        <span class="about-field__label">البريد الإلكتروني</span>
+        <span class="about-field__value" id="email-link"></span>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    renderMasthead("about");
+
+    document.getElementById("archive-link").innerHTML =
+      `<a href="${SITE_CONFIG.archiveUrl}" target="_blank" rel="noopener">${SITE_CONFIG.archiveUrl}</a>`;
+    document.getElementById("email-link").innerHTML =
+      `<a href="mailto:${SITE_CONFIG.email}">${SITE_CONFIG.email}</a>`;
+  </script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>النهج الشيوعي</title>
+  <link rel="icon" href="images/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</head>
+<body>
+  <header id="masthead" class="masthead"></header>
+
+  <main>
+    <div class="page-intro">
+      <h1>البحث عن منشور معين</h1>
+      <p>اكتب عنوان المنشور أو جزءا منه</p>
+    </div>
+
+    <div class="search-box">
+      <input type="search" id="q" placeholder="ابحث عن العنوان…" autocomplete="off">
+    </div>
+    <p class="search-count" id="count"></p>
+
+    <div id="issues" class="issue-grid" aria-live="polite"></div>
+  </main>
+
+  <script>
+    renderMasthead("search");
+
+    let allIssues = [];
+    const container = document.getElementById("issues");
+    const countEl = document.getElementById("count");
+    const input = document.getElementById("q");
+
+    const params = new URLSearchParams(location.search);
+    if (params.get("q")) input.value = params.get("q");
+
+    function render() {
+      const q = input.value.trim();
+      const results = q
+        ? allIssues.filter((i) => i.title && i.title.includes(q))
+        : allIssues;
+
+      const url = new URL(location.href);
+      if (q) url.searchParams.set("q", q); else url.searchParams.delete("q");
+      history.replaceState(null, "", url);
+
+      if (allIssues.length === 0) {
+        container.innerHTML = "";
+        countEl.textContent = "";
+        return;
+      }
+      if (results.length === 0) {
+        container.innerHTML = "";
+        countEl.textContent = "لا توجد نتائج مطابقة";
+        return;
+      }
+      countEl.textContent = q ? `${results.length} نتيجة` : `${results.length} عددا`;
+      container.innerHTML = results.map(plateHtml).join("");
+    }
+
+    input.addEventListener("input", render);
+
+    (async function () {
+      allIssues = await fetchIssues();
+      if (allIssues.length === 0) {
+        return;
+      }
+      render();
+    })();
+  </script>
+</body>
+</html>

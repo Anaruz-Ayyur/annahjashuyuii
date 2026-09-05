@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>النهج الشيوعي</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="images/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+  <script src="github.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+  <header id="masthead" class="masthead"></header>
+
+  <main>
+    <div class="admin">
+
+      <div class="field">
+        <label for="token">رمز الدخول</label>
+        <input type="password" id="token" autocomplete="off">
+      </div>
+      <button class="btn btn--primary" id="connect-btn">دخول</button>
+      <p class="status-line" id="connect-status"></p>
+
+      <div id="workspace" hidden>
+
+        <h2>نشر منشور جديد</h2>
+        <div class="field-row">
+          <div class="field">
+            <label for="title">عنوان المنشور</label>
+            <input type="text" id="title">
+          </div>
+          <div class="field">
+            <label for="date">تاريخ الصدور</label>
+            <input type="date" id="date">
+          </div>
+        </div>
+        <div class="field">
+          <label for="pdf-file">ملف PDF</label>
+          <input type="file" id="pdf-file" accept="application/pdf">
+        </div>
+        <button class="btn btn--primary" id="publish-btn">نشر</button>
+        <p class="status-line" id="publish-status"></p>
+
+        <h2>المنشورات</h2>
+        <p class="status-line" id="list-status"></p>
+        <ul class="admin-list" id="admin-list"></ul>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    renderMasthead("latest");
+    document.getElementById("date").valueAsDate = new Date();
+
+    if (window["pdfjsLib"]) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
+
+    let token = "";
+    let issues = [];
+
+    const tokenInput = document.getElementById("token");
+    const connectBtn = document.getElementById("connect-btn");
+    const connectStatus = document.getElementById("connect-status");
+    const workspace = document.getElementById("workspace");
+    const listStatus = document.getElementById("list-status");
+    const adminList = document.getElementById("admin-list");
+    const publishBtn = document.getElementById("publish-btn");
+    const publishStatus = document.getElementById("publish-status");
+
+    function setStatus(el, text, state) {
+      el.textContent = text;
+      if (state) el.dataset.state = state; else delete el.dataset.state;
+    }
+
+    const savedToken = localStorage.getItem("nahj_gh_token");
+    if (savedToken) tokenInput.value = savedToken;
+
+    connectBtn.addEventListener("click", connect);
+
+    async function connect() {
+      token = tokenInput.value.trim();
+      if (!token) {
+        setStatus(connectStatus, "أدخل رمز الدخول أولًا", "error");
+        return;
+      }
+      setStatus(connectStatus, "جارٍ التحقق…", "busy");
+      try {
+        await GitHubAPI.verifyAccess(token);
+        localStorage.setItem("nahj_gh_token", token);
+        setStatus(connectStatus, "تم الدخول", "ok");
+        workspace.hidden = false;
+        await loadIssues();
+      } catch (e) {
+        setStatus(connectStatus, e.message, "error");
+      }
+    }
+
+    async function loadIssues() {
+      setStatus(listStatus, "جارٍ التحميل…", "busy");
+      try {
+        const { data } = await GitHubAPI.getJson(token, "data/issues.json");
+        issues = Array.isArray(data) ? data : [];
+        renderList();
+        setStatus(listStatus, "", null);
+      } catch (e) {
+        setStatus(listStatus, e.message, "error");
+      }
+    }
+
+    function renderList() {
+      if (issues.length === 0) {
+        adminList.innerHTML = "";
+        return;
+      }
+      const sorted = issues.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      adminList.innerHTML = sorted.map((issue) => `
+        <li class="admin-row" data-id="${issue.id}">
+          <img class="admin-row__thumb" src="${issue.thumb ? rawUrl(issue.thumb) : ''}" alt="">
+          <div class="admin-row__body">
+            <div class="admin-row__title">
+              <input type="text" value="${escapeHtml(issue.title)}" data-field="title">
+            </div>
+            <div class="admin-row__date">
+              <input type="date" value="${issue.date || ''}" data-field="date">
+            </div>
+          </div>
+          <div class="admin-row__actions">
+            <button class="icon-btn" data-action="save">حفظ</button>
+            <button class="icon-btn icon-btn--danger" data-action="delete">حذف</button>
+          </div>
+        </li>
+      `).join("");
+    }
+
+    adminList.addEventListener("click", async (e) => {
+      const btn = e.target.closest("button[data-action]");
+      if (!btn) return;
+      const row = btn.closest(".admin-row");
+      const id = row.dataset.id;
+      if (!id) return;
+
+      if (btn.dataset.action === "save") {
+        const title = row.querySelector('[data-field="title"]').value.trim();
+        const date = row.querySelector('[data-field="date"]').value;
+        await updateIssue(id, { title, date });
+      }
+      if (btn.dataset.action === "delete") {
+        if (!confirm("هل تريد حذف هذا العدد نهائيًا؟")) return;
+        await removeIssue(id);
+      }
+    });
+
+    async function updateIssue(id, patch) {
+      setStatus(listStatus, "جارٍ الحفظ…", "busy");
+      try {
+        const { data, sha } = await GitHubAPI.getJson(token, "data/issues.json");
+        const list = Array.isArray(data) ? data : [];
+        const idx = list.findIndex((i) => i.id === id);
+        if (idx === -1) throw new Error("العدد غير موجود");
+        list[idx] = { ...list[idx], ...patch };
+        await GitHubAPI.putJson(token, "data/issues.json", list, `تحديث عدد: ${patch.title}`, sha);
+        issues = list;
+        setStatus(listStatus, "تم الحفظ", "ok");
+      } catch (e) {
+        setStatus(listStatus, e.message, "error");
+      }
+    }
+
+    async function removeIssue(id) {
+      setStatus(listStatus, "جارٍ الحذف…", "busy");
+      try {
+        const { data, sha } = await GitHubAPI.getJson(token, "data/issues.json");
+        const list = Array.isArray(data) ? data : [];
+        const target = list.find((i) => i.id === id);
+        if (!target) throw new Error("العدد غير موجود");
+        const remaining = list.filter((i) => i.id !== id);
+
+        if (target.pdf) {
+          const pdfFile = await GitHubAPI.getFile(token, target.pdf);
+          if (pdfFile) await GitHubAPI.deleteFile(token, target.pdf, pdfFile.sha, `حذف ملف: ${target.title}`);
+        }
+        if (target.thumb) {
+          const thumbFile = await GitHubAPI.getFile(token, target.thumb);
+          if (thumbFile) await GitHubAPI.deleteFile(token, target.thumb, thumbFile.sha, `حذف غلاف: ${target.title}`);
+        }
+        await GitHubAPI.putJson(token, "data/issues.json", remaining, `حذف عدد: ${target.title}`, sha);
+        issues = remaining;
+        renderList();
+        setStatus(listStatus, "تم الحذف", "ok");
+      } catch (e) {
+        setStatus(listStatus, e.message, "error");
+      }
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function renderFirstPageThumbnail(arrayBuffer) {
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1.6 });
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+      return canvas.toDataURL("image/png").split(",")[1];
+    }
+
+    function slugify() {
+      return `issue-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    }
+
+    publishBtn.addEventListener("click", async () => {
+      const title = document.getElementById("title").value.trim();
+      const date = document.getElementById("date").value;
+      const fileInput = document.getElementById("pdf-file");
+      const file = fileInput.files[0];
+
+      if (!title) { setStatus(publishStatus, "أدخل عنوان العدد", "error"); return; }
+      if (!file) { setStatus(publishStatus, "اختر ملف PDF", "error"); return; }
+
+      publishBtn.disabled = true;
+      try {
+        setStatus(publishStatus, "جارٍ قراءة الملف…", "busy");
+        const arrayBuffer = await file.arrayBuffer();
+
+        setStatus(publishStatus, "جارٍ إنشاء صورة الغلاف…", "busy");
+        const thumbB64 = await renderFirstPageThumbnail(arrayBuffer);
+
+        const pdfB64 = await fileToBase64(file);
+        const id = slugify();
+        const pdfPath = `pdfs/${id}.pdf`;
+        const thumbPath = `thumbnails/${id}.png`;
+
+        setStatus(publishStatus, "جارٍ رفع ملف PDF…", "busy");
+        await GitHubAPI.putFile(token, pdfPath, pdfB64, `نشر ملف عدد: ${title}`);
+
+        setStatus(publishStatus, "جارٍ رفع صورة الغلاف…", "busy");
+        await GitHubAPI.putFile(token, thumbPath, thumbB64, `نشر غلاف عدد: ${title}`);
+
+        setStatus(publishStatus, "جارٍ تحديث الفهرس…", "busy");
+        const { data, sha } = await GitHubAPI.getJson(token, "data/issues.json");
+        const list = Array.isArray(data) ? data : [];
+        list.unshift({
+          id, title, date,
+          pdf: pdfPath, thumb: thumbPath,
+          createdAt: Date.now(),
+        });
+        await GitHubAPI.putJson(token, "data/issues.json", list, `نشر عدد جديد: ${title}`, sha);
+
+        issues = list;
+        renderList();
+        setStatus(publishStatus, "تم النشر", "ok");
+        document.getElementById("title").value = "";
+        fileInput.value = "";
+      } catch (e) {
+        setStatus(publishStatus, e.message, "error");
+      } finally {
+        publishBtn.disabled = false;
+      }
+    });
+
+    if (savedToken) connect();
+  </script>
+</body>
+</html>

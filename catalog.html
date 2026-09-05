@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>النهج الشيوعي</title>
+  <link rel="icon" href="images/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</head>
+<body>
+  <header id="masthead" class="masthead"></header>
+
+  <main>
+    <div class="page-intro">
+      <h1>الفهرس</h1>
+      <p>كل المنشورات مصنفة حسب السنة والشهر</p>
+    </div>
+    <div id="catalog"></div>
+  </main>
+
+  <script>
+    renderMasthead("catalog");
+
+    (async function () {
+      const container = document.getElementById("catalog");
+      const issues = await fetchIssues();
+      if (issues.length === 0) {
+        return;
+      }
+      const grouped = groupIssuesByYearMonth(issues);
+      container.innerHTML = grouped.map((y) => `
+        <h2 class="archive-year">${y.year}</h2>
+        ${y.months.map((m) => `
+          <h3 class="archive-month">${m.month}</h3>
+          <div class="issue-grid">${m.issues.map(plateHtml).join("")}</div>
+        `).join("")}
+      `).join("");
+    })();
+  </script>
+</body>
+</html>

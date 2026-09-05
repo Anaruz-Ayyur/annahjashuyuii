@@ -32,11 +32,11 @@
         return;
       }
       const grouped = groupIssuesByYearMonth(issues);
-      container.innerHTML = grouped.map((y, yi) => `
-        <details class="archive-year" ${yi === 0 ? "open" : ""}>
+      container.innerHTML = grouped.map((y) => `
+        <details class="archive-year">
           <summary class="archive-year__summary">${y.year}</summary>
-          ${y.months.map((m, mi) => `
-            <details class="archive-month" ${yi === 0 && mi === 0 ? "open" : ""}>
+          ${y.months.map((m) => `
+            <details class="archive-month">
               <summary class="archive-month__summary">${m.month}</summary>
               <div class="issue-grid">${m.issues.map(plateHtml).join("")}</div>
             </details>

@@ -44,6 +44,10 @@
           <label for="pdf-file">ملف PDF</label>
           <input type="file" id="pdf-file" accept="application/pdf">
         </div>
+        <div class="field">
+          <label for="thumb-file">صورة الغلاف A4 (اختياري، إن لم تُختر تُنشأ تلقائيًا من الصفحة الأولى)</label>
+          <input type="file" id="thumb-file" accept="image/*">
+        </div>
         <button class="btn btn--primary" id="publish-btn">نشر</button>
         <p class="status-line" id="publish-status"></p>
 
@@ -122,15 +126,26 @@
         return;
       }
       const sorted = issues.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      const cacheBust = Date.now();
       adminList.innerHTML = sorted.map((issue) => `
         <li class="admin-row" data-id="${issue.id}">
-          <img class="admin-row__thumb" src="${issue.thumb ? rawUrl(issue.thumb) : ''}" alt="">
+          <img class="admin-row__thumb" src="${issue.thumb ? rawUrl(issue.thumb) + '?t=' + cacheBust : ''}" alt="">
           <div class="admin-row__body">
             <div class="admin-row__title">
               <input type="text" value="${escapeHtml(issue.title)}" data-field="title">
             </div>
             <div class="admin-row__date">
               <input type="date" value="${issue.date || ''}" data-field="date">
+            </div>
+            <div class="admin-row__replace">
+              <label class="admin-row__replace-label">
+                استبدال ملف PDF
+                <input type="file" accept="application/pdf" data-field="pdf-file">
+              </label>
+              <label class="admin-row__replace-label">
+                استبدال صورة الغلاف A4
+                <input type="file" accept="image/*" data-field="thumb-file">
+              </label>
             </div>
           </div>
           <div class="admin-row__actions">
@@ -151,7 +166,15 @@
       if (btn.dataset.action === "save") {
         const title = row.querySelector('[data-field="title"]').value.trim();
         const date = row.querySelector('[data-field="date"]').value;
-        await updateIssue(id, { title, date });
+        const pdfFileInput = row.querySelector('[data-field="pdf-file"]');
+        const thumbFileInput = row.querySelector('[data-field="thumb-file"]');
+        const pdfFile = pdfFileInput.files[0];
+        const thumbFile = thumbFileInput.files[0];
+        btn.disabled = true;
+        await updateIssue(id, { title, date }, pdfFile, thumbFile);
+        btn.disabled = false;
+        pdfFileInput.value = "";
+        thumbFileInput.value = "";
       }
       if (btn.dataset.action === "delete") {
         if (!confirm("هل تريد حذف هذا العدد نهائيًا؟")) return;
@@ -159,16 +182,43 @@
       }
     });
 
-    async function updateIssue(id, patch) {
+    async function updateIssue(id, patch, pdfFile, thumbFile) {
       setStatus(listStatus, "جارٍ الحفظ…", "busy");
       try {
         const { data, sha } = await GitHubAPI.getJson(token, "data/issues.json");
         const list = Array.isArray(data) ? data : [];
         const idx = list.findIndex((i) => i.id === id);
         if (idx === -1) throw new Error("العدد غير موجود");
-        list[idx] = { ...list[idx], ...patch };
-        await GitHubAPI.putJson(token, "data/issues.json", list, `تحديث عدد: ${patch.title}`, sha);
+        const current = list[idx];
+        const label = patch.title || current.title;
+
+        if (pdfFile) {
+          setStatus(listStatus, "جارٍ رفع ملف PDF الجديد…", "busy");
+          const arrayBuffer = await pdfFile.arrayBuffer();
+          const pdfB64 = await fileToBase64(pdfFile);
+          const existingPdf = await GitHubAPI.getFile(token, current.pdf);
+          await GitHubAPI.putFile(token, current.pdf, pdfB64, `تحديث ملف: ${label}`, existingPdf ? existingPdf.sha : undefined);
+
+          if (!thumbFile) {
+            setStatus(listStatus, "جارٍ تحديث صورة الغلاف…", "busy");
+            const thumbB64 = await renderFirstPageThumbnail(arrayBuffer);
+            const existingThumb = await GitHubAPI.getFile(token, current.thumb);
+            await GitHubAPI.putFile(token, current.thumb, thumbB64, `تحديث غلاف: ${label}`, existingThumb ? existingThumb.sha : undefined);
+          }
+        }
+
+        if (thumbFile) {
+          setStatus(listStatus, "جارٍ رفع صورة الغلاف الجديدة…", "busy");
+          const thumbB64 = await fileToBase64(thumbFile);
+          const existingThumb = await GitHubAPI.getFile(token, current.thumb);
+          await GitHubAPI.putFile(token, current.thumb, thumbB64, `تحديث غلاف: ${label}`, existingThumb ? existingThumb.sha : undefined);
+        }
+
+        setStatus(listStatus, "جارٍ حفظ البيانات…", "busy");
+        list[idx] = { ...current, ...patch };
+        await GitHubAPI.putJson(token, "data/issues.json", list, `تحديث عدد: ${label}`, sha);
         issues = list;
+        renderList();
         setStatus(listStatus, "تم الحفظ", "ok");
       } catch (e) {
         setStatus(listStatus, e.message, "error");
@@ -230,6 +280,8 @@
       const date = document.getElementById("date").value;
       const fileInput = document.getElementById("pdf-file");
       const file = fileInput.files[0];
+      const thumbFileInput = document.getElementById("thumb-file");
+      const thumbFile = thumbFileInput.files[0];
 
       if (!title) { setStatus(publishStatus, "أدخل عنوان العدد", "error"); return; }
       if (!file) { setStatus(publishStatus, "اختر ملف PDF", "error"); return; }
@@ -239,8 +291,14 @@
         setStatus(publishStatus, "جارٍ قراءة الملف…", "busy");
         const arrayBuffer = await file.arrayBuffer();
 
-        setStatus(publishStatus, "جارٍ إنشاء صورة الغلاف…", "busy");
-        const thumbB64 = await renderFirstPageThumbnail(arrayBuffer);
+        let thumbB64;
+        if (thumbFile) {
+          setStatus(publishStatus, "جارٍ قراءة صورة الغلاف…", "busy");
+          thumbB64 = await fileToBase64(thumbFile);
+        } else {
+          setStatus(publishStatus, "جارٍ إنشاء صورة الغلاف…", "busy");
+          thumbB64 = await renderFirstPageThumbnail(arrayBuffer);
+        }
 
         const pdfB64 = await fileToBase64(file);
         const id = slugify();
@@ -268,6 +326,7 @@
         setStatus(publishStatus, "تم النشر", "ok");
         document.getElementById("title").value = "";
         fileInput.value = "";
+        thumbFileInput.value = "";
       } catch (e) {
         setStatus(publishStatus, e.message, "error");
       } finally {

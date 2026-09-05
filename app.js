@@ -49,15 +49,26 @@ async function fetchIssues() {
   }
 }
 
+const MOROCCAN_MONTHS = [
+  "يناير", "فبراير", "مارس", "أبريل", "ماي", "يونيو",
+  "يوليوز", "غشت", "شتنبر", "أكتوبر", "نونبر", "دجنبر",
+];
+
+function parseDateParts(dateStr) {
+  const parts = String(dateStr || "").split("-");
+  if (parts.length !== 3) return null;
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+  if (Number.isNaN(year) || Number.isNaN(day) || month < 1 || month > 12) return null;
+  return { year, month, day };
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return "";
-  try {
-    const d = new Date(dateStr);
-    if (Number.isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString("ar", { year: "numeric", month: "long", day: "numeric" });
-  } catch (e) {
-    return dateStr;
-  }
+  const parts = parseDateParts(dateStr);
+  if (!parts) return dateStr;
+  return `${parts.day} ${MOROCCAN_MONTHS[parts.month - 1]} ${parts.year}`;
 }
 
 function plateHtml(issue) {
@@ -78,13 +89,14 @@ function plateHtml(issue) {
 function groupIssuesByYearMonth(issues) {
   const years = new Map();
   for (const issue of issues) {
-    const d = new Date(issue.date);
-    const year = Number.isNaN(d.getTime()) ? "بدون تاريخ" : d.getFullYear();
-    const month = Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("ar", { month: "long" });
+    const parts = parseDateParts(issue.date);
+    const year = parts ? parts.year : "بدون تاريخ";
+    const month = parts ? MOROCCAN_MONTHS[parts.month - 1] : "";
+    const sortValue = parts ? parts.year * 10000 + parts.month * 100 + parts.day : 0;
     if (!years.has(year)) years.set(year, new Map());
     const months = years.get(year);
-    if (!months.has(month)) months.set(month, []);
-    months.get(month).push(issue);
+    if (!months.has(month)) months.set(month, { sortValue, issues: [] });
+    months.get(month).issues.push(issue);
   }
   const sortedYears = [...years.entries()].sort((a, b) => {
     if (a[0] === "بدون تاريخ") return 1;
@@ -93,12 +105,9 @@ function groupIssuesByYearMonth(issues) {
   });
   return sortedYears.map(([year, months]) => ({
     year,
-    months: [...months.entries()].sort((a, b) => {
-      const da = a[1][0] ? new Date(a[1][0].date) : null;
-      const db = b[1][0] ? new Date(b[1][0].date) : null;
-      if (!da || !db) return 0;
-      return db - da;
-    }).map(([month, list]) => ({ month, issues: list })),
+    months: [...months.entries()]
+      .sort((a, b) => b[1].sortValue - a[1].sortValue)
+      .map(([month, data]) => ({ month, issues: data.issues })),
   }));
 }
 

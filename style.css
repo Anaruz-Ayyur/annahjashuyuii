@@ -45,7 +45,7 @@ img{ max-width: 100%; display: block; }
 .masthead{
   border-bottom: 1px solid var(--line);
   background: var(--bg-raised);
-  padding: 2rem 1.5rem 0;
+  padding: 1.3rem 1.5rem 0;
 }
 
 .masthead__inner{
@@ -59,9 +59,9 @@ img{ max-width: 100%; display: block; }
 }
 
 .masthead__emblem{
-  width: clamp(160px, 24vw, 240px);
+  width: clamp(100px, 12vw, 140px);
   height: auto;
-  margin: 0 auto 1.1rem;
+  margin: 0 auto 0.7rem;
 }
 
 .masthead__title{
@@ -77,20 +77,20 @@ img{ max-width: 100%; display: block; }
 
 .masthead__rule{
   max-width: 460px;
-  margin: 1.15rem auto 0;
+  margin: 0.8rem auto 0;
   border: 0;
   border-top: 3px double var(--gold-dim);
 }
 
 .masthead__tagline{
-  margin: 0.9rem auto 0;
+  margin: 0.6rem auto 0;
   max-width: 34rem;
   font-size: 24px;
   color: var(--text);
-  line-height: 1.9;
+  line-height: 1.5;
 }
 
-.nav{ margin-top: 1.2rem; }
+.nav{ margin-top: 0.6rem; }
 .nav__list{
   list-style: none;
   display: flex;
@@ -112,8 +112,8 @@ img{ max-width: 100%; display: block; }
 .nav__link{
   text-decoration: none;
   color: var(--text-dim);
-  font-size: 1.02rem;
-  padding: 0.9rem 0.15rem;
+  font-size: calc(1.02rem + 2px);
+  padding: 0.6rem 0.15rem;
   border-bottom: 2px solid transparent;
   transition: color 0.15s ease, border-color 0.15s ease;
 }
@@ -126,23 +126,7 @@ img{ max-width: 100%; display: block; }
 main{
   max-width: 1080px;
   margin: 0 auto;
-  padding: 3rem 1.5rem 5rem;
-}
-
-.page-intro{
-  text-align: center;
-  max-width: 40rem;
-  margin: 0 auto 2.6rem;
-}
-.page-intro h1{
-  font-size: 1.55rem;
-  font-weight: 700;
-  color: var(--text);
-  margin: 0 0 0.5rem;
-}
-.page-intro p{
-  color: var(--text-dim);
-  margin: 0;
+  padding: 2.2rem 1.5rem 5rem;
 }
 
 .issue-grid{
@@ -478,11 +462,14 @@ main{
 .icon-btn--danger:hover{ border-color: var(--red); color: var(--red-bright); }
 
 @media (max-width: 640px){
-  .masthead{ padding: 1.5rem 1rem 0; }
-  .nav{ margin-top: 1rem; }
+  .masthead{ padding: 1rem 1rem 0; }
+  .masthead__emblem{ width: clamp(80px, 22vw, 110px); margin: 0 auto 0.5rem; }
+  .masthead__rule{ margin: 0.6rem auto 0; }
+  .masthead__tagline{ margin: 0.5rem auto 0; }
+  .nav{ margin-top: 0.4rem; }
   .nav__list li + li::before{ margin: 0 0.7rem; }
-  .nav__link{ font-size: 0.95rem; padding: 0.6rem 0.1rem; }
-  main{ padding: 2rem 1rem 3.5rem; }
+  .nav__link{ font-size: calc(0.95rem + 2px); padding: 0.45rem 0.1rem; }
+  main{ padding: 1.4rem 1rem 3.5rem; }
   .issue-grid{
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
     gap: 1.6rem 1rem;

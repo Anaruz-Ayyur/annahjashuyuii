@@ -45,7 +45,7 @@
           <input type="file" id="pdf-file" accept="application/pdf">
         </div>
         <div class="field">
-          <label for="thumb-file">صورة الغلاف A4 (اختياري، إن لم تُختر تُنشأ تلقائيًا من الصفحة الأولى)</label>
+          <label for="thumb-file">صورة الغلاف A4</label>
           <input type="file" id="thumb-file" accept="image/*">
         </div>
         <button class="btn btn--primary" id="publish-btn">نشر</button>
@@ -93,7 +93,7 @@
     async function connect() {
       token = tokenInput.value.trim();
       if (!token) {
-        setStatus(connectStatus, "أدخل رمز الدخول أولًا", "error");
+        setStatus(connectStatus, "أدخل رمز الدخول أولا", "error");
         return;
       }
       setStatus(connectStatus, "جارٍ التحقق…", "busy");
@@ -177,7 +177,7 @@
         thumbFileInput.value = "";
       }
       if (btn.dataset.action === "delete") {
-        if (!confirm("هل تريد حذف هذا العدد نهائيًا؟")) return;
+        if (!confirm("هل تريد حذف هذا المنشور نهائيا؟")) return;
         await removeIssue(id);
       }
     });
@@ -188,7 +188,7 @@
         const { data, sha } = await GitHubAPI.getJson(token, "data/issues.json");
         const list = Array.isArray(data) ? data : [];
         const idx = list.findIndex((i) => i.id === id);
-        if (idx === -1) throw new Error("العدد غير موجود");
+        if (idx === -1) throw new Error("المنشور غير موجود");
         const current = list[idx];
         const label = patch.title || current.title;
 
@@ -216,7 +216,7 @@
 
         setStatus(listStatus, "جارٍ حفظ البيانات…", "busy");
         list[idx] = { ...current, ...patch };
-        await GitHubAPI.putJson(token, "data/issues.json", list, `تحديث عدد: ${label}`, sha);
+        await GitHubAPI.putJson(token, "data/issues.json", list, `تحديث المنشور: ${label}`, sha);
         issues = list;
         renderList();
         setStatus(listStatus, "تم الحفظ", "ok");
@@ -231,7 +231,7 @@
         const { data, sha } = await GitHubAPI.getJson(token, "data/issues.json");
         const list = Array.isArray(data) ? data : [];
         const target = list.find((i) => i.id === id);
-        if (!target) throw new Error("العدد غير موجود");
+        if (!target) throw new Error("المنشور غير موجود");
         const remaining = list.filter((i) => i.id !== id);
 
         if (target.pdf) {
@@ -242,7 +242,7 @@
           const thumbFile = await GitHubAPI.getFile(token, target.thumb);
           if (thumbFile) await GitHubAPI.deleteFile(token, target.thumb, thumbFile.sha, `حذف غلاف: ${target.title}`);
         }
-        await GitHubAPI.putJson(token, "data/issues.json", remaining, `حذف عدد: ${target.title}`, sha);
+        await GitHubAPI.putJson(token, "data/issues.json", remaining, `حذف منشور: ${target.title}`, sha);
         issues = remaining;
         renderList();
         setStatus(listStatus, "تم الحذف", "ok");
@@ -283,7 +283,7 @@
       const thumbFileInput = document.getElementById("thumb-file");
       const thumbFile = thumbFileInput.files[0];
 
-      if (!title) { setStatus(publishStatus, "أدخل عنوان العدد", "error"); return; }
+      if (!title) { setStatus(publishStatus, "أدخل عنوان المنشور", "error"); return; }
       if (!file) { setStatus(publishStatus, "اختر ملف PDF", "error"); return; }
 
       publishBtn.disabled = true;
@@ -319,7 +319,7 @@
           pdf: pdfPath, thumb: thumbPath,
           createdAt: Date.now(),
         });
-        await GitHubAPI.putJson(token, "data/issues.json", list, `نشر عدد جديد: ${title}`, sha);
+        await GitHubAPI.putJson(token, "data/issues.json", list, `نشر منشور جديد: ${title}`, sha);
 
         issues = list;
         renderList();

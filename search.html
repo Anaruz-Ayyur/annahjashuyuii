@@ -54,7 +54,7 @@
         countEl.textContent = "لا توجد نتائج مطابقة";
         return;
       }
-      countEl.textContent = q ? `${results.length} نتيجة` : `${results.length} عددا`;
+      countEl.textContent = q ? `${results.length} نتيجة` : `${results.length} منشورا`;
       container.innerHTML = results.map(plateHtml).join("");
     }
 
